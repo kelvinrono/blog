@@ -148,6 +148,6 @@ def subBlog():
         db.session.commit()
 
 
-        mail_message("You have successfully subscribed to Awesome Blog website,Thank for joining us", "email/welcome_subs", subs.email,subs=subs)
-    
+        mail_message("You have successfully subscribed to our newsletter,Thank for joining us", "email/welcome_subs", subs.email,subs=subs)
+        return redirect(url_for('main.index'))
     return render_template('subscribe.html',subscribe_form=form)

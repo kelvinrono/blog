@@ -7,32 +7,43 @@
 
 {% block content %}
 
-<div class="jumbotron text-center" style= "background-color: #55BCC9; color:white; padding: 5px;">
-   
-  <h2>Welcome to Awesome Blog</h2>
-  <h3 style="font-style: italic;">Get your favourite and latest posts here,write a  posts today and you can also subscribe to get all the updates</h3>
-</div>
+
     <div class="container">  
+
+      <div class="jumbotron text-center" style= "background-color: #431620; color:white; padding: 5px;">
+        <h2>Do you have a powerful blog and you don't know what to do?</h2>
+        <p>We got you! </p>
+        <p>Sign up to and publish whatever you want here!</p>
+      </div>
         <hr>
         <div class="row">
-          <div class="col-md-4">
-            <br>
-              <a href="../blog/" class="btn btn-info btn-sm">Create Blog</a>
-              <a href="{{url_for('main.category')}}" class="btn btn-info btn-sm">View blogs</a>
+         
 
-            </div>
-
-            <div class="col-md-4">
-              <div style="font-size: 16px;">
-                <h3 style="color:blue">Quote</h3>
+         
+              <div style="font-size: 16px;" class="col-md-6">
+                <h3 style="color:black">Random Quotes:</h3>
                {% for quote in getquotes %}
                <p style="color:maroon">{{quote.quote}}</p>
-               <p style="color:blue">{{quote.author}}</p>
+               <p style="color:black">{{quote.author}}</p>
                {% endfor %}
            
              </div>
-             </div>
+             
+
+             <div class="col-md-4">
+              <br>
+                <a href="../blog/" class="btn btn-primary btn-md">Post a Blog</a>
+                <a href="{{url_for('main.category')}}" class="btn btn-primary btn-md">View published blogs</a>
+  
+              </div>
+           
      </div>
+     <div class="row">
+      <div class="col-md-6" > 
+        <h3 class="" id="card">Subscribe to our newsletter</h3>
+        <p><b><u><button class="btn btn-danger btn-lg" style="color:#fff"><a href="/Subscribe">Subscribe</a></button></u></b></p>
+      </div> 
+      </div>
  
 
      </div>
