@@ -1,18 +1,27 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField,TextAreaField,SubmitField,SelectField
+from wtforms import StringField,TextAreaField,SubmitField,SelectField,ValidationError
 from wtforms.validators import Required
+from ..models import User,Subscriber
 
-class PitchForm(FlaskForm):
-
-    title = StringField('Pitch title',validators=[Required()])
-    text = TextAreaField('Text',validators=[Required()])
-    category = SelectField('Type',choices=[('market','Market pitch'),('business','Business pitch'),('sales','Sales pitch')],validators=[Required()])
+class BlogsForm(FlaskForm):
+    title = StringField('Blog Title')
+    category = SelectField(u'Blog Categories', choices=[('Technology', 'Technology')])
+    blog = TextAreaField('Blog')
     submit = SubmitField('Submit')
+    
+class CommentForm(FlaskForm):
+    comment = TextAreaField('Comment')
+    submit = SubmitField('Post Comments')
 
 class UpdateProfile(FlaskForm):
-    bio = TextAreaField('Bio.',validators = [Required()])
+    bio = TextAreaField('Add Your profile.',validators = [Required()])
     submit = SubmitField('Submit')
 
-class CommentForm(FlaskForm):
-    text = TextAreaField('Leave a comment:',validators=[Required()])
+class SubscriberForm(FlaskForm):
+    email = TextAreaField('Enter your valid email address.',validators = [Required()])
+    username = TextAreaField('Username', validators = [Required()])
     submit = SubmitField('Submit')
+
+    def validate_email(self,data_field):
+        if Subscriber.query.filter_by(email = data_field.data).first():
+            raise ValidationError('Your data already exists') 

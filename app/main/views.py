@@ -1,44 +1,72 @@
-from flask import render_template,request,redirect,url_for,abort
-from . import main
-from ..models import User,Pitch,Comment
+from flask_login import login_required, current_user
+from flask import render_template,request,redirect,url_for, abort,flash
+from ..models import Blogs,Role,User,Comments,Subscriber
 from .. import db,photos
-from .forms import UpdateProfile,PitchForm,CommentForm
-from flask_login import login_required,current_user
-import datetime
+from . import main
+from ..email import mail_message
+from .forms import BlogsForm,CommentForm,UpdateProfile,SubscriberForm
+from ..requests import getQuotes
 
-# Views
-@main.route('/')
+@main.route('/blog/', methods = ['GET','POST'])
+@login_required
+def new_blog():
+
+    form = BlogsForm()
+
+    if form.validate_on_submit():
+        category = form.category.data
+        # print("category")
+        blog= form.blog.data
+        title=form.title.data
+
+        
+        new_blog = Blogs(title=title,category= category,blog= blog,user_id=current_user.id)
+
+        title='New Blog'
+
+        new_blog.save_blog()
+
+        return redirect(url_for('main.index'))
+
+    return render_template('blog.html',form= form)
+
+@main.route('/',methods=['GET'])
 def index():
 
+    getquotes = getQuotes()
+    message= "Welcome to Blog Website!!"
+    title= 'Awesome Blog'
+    return render_template('index.html',getquotes = getquotes,message=message,title=title)
+
+
+@main.route('/categories')
+# @login_required
+def category():
     '''
-    View root page function that returns the index page and its data
+    function to return the blogs by category
     '''
+    category = Blogs.get_blogs()
+  
+    
 
-    title = 'Home - Welcome to Awesome Pitch'
+    title = category
+    return render_template('categories.html',title = title, category = category)
 
-    # Getting reviews by category
-    market_pitches = Pitch.get_pitches('market')
-    business_pitches = Pitch.get_pitches('business')
-    sales_pitches = Pitch.get_pitches('sales')
-
-
-    return render_template('index.html',title = title, market = market_pitches, business = business_pitches, sales = sales_pitches)
+    
 
 @main.route('/user/<uname>')
 def profile(uname):
-    user = User.query.filter_by(username = uname).first()
-    pitches_count = Pitch.count_pitches(uname)
-    user_joined = user.date_joined.strftime('%b %d, %Y')
+    user = User.query.filter_by(author = uname).first()
 
     if user is None:
         abort(404)
 
-    return render_template("profile/profile.html", user = user,pitches = pitches_count,date = user_joined)
+    return render_template("profile/profile.html", user = user)
 
 @main.route('/user/<uname>/update',methods = ['GET','POST'])
 @login_required
 def update_profile(uname):
-    user = User.query.filter_by(username = uname).first()
+    user = User.query.filter_by(author = uname).first()
     if user is None:
         abort(404)
 
@@ -50,15 +78,14 @@ def update_profile(uname):
         db.session.add(user)
         db.session.commit()
 
-        return redirect(url_for('.profile',uname=user.username))
+        return redirect(url_for('.profile',uname=user.author))
 
-    return render_template('profile/update.html',form = form)
-
+    return render_template('profile/update.html',form =form)
 
 @main.route('/user/<uname>/update/pic',methods= ['POST'])
 @login_required
 def update_pic(uname):
-    user = User.query.filter_by(username = uname).first()
+    user = User.query.filter_by(author = uname).first()
     if 'photo' in request.files:
         filename = photos.save(request.files['photo'])
         path = f'photos/{filename}'
@@ -66,85 +93,61 @@ def update_pic(uname):
         db.session.commit()
     return redirect(url_for('main.profile',uname=uname))
 
-@main.route('/pitch/new', methods = ['GET','POST'])
+@main.route('/comments/<id>')
 @login_required
-def new_pitch():
-    pitch_form = PitchForm()
-    if pitch_form.validate_on_submit():
-        title = pitch_form.title.data
-        pitch = pitch_form.text.data
-        category = pitch_form.category.data
+def comment(id):
+    '''
+    function to return the comments
+    '''
+    comm =Comments.get_comment(id)
+   
+    title = 'comments'
+    return render_template('comments.html',comment = comm,title = title)
 
-        # Updated pitch instance
-        new_pitch = Pitch(pitch_title=title,pitch_content=pitch,category=category,user=current_user,likes=0,dislikes=0)
+@main.route('/new_comment/<int:blogs_id>', methods = ['GET', 'POST'])
+@login_required
+def new_comment( blogs_id):
+    
+    blogs = Blogs.query.filter_by(id = blogs_id).first()
+    form = CommentForm()
 
-        # Save pitch method
-        new_pitch.save_pitch()
-        return redirect(url_for('.index'))
-
-    title = 'New pitch'
-    return render_template('new-blog.html',title = title,pitch_form=pitch_form )
-
-@main.route('/pitches/market_pitches')
-def market_pitches():
-
-    pitches = Pitch.get_pitches('market')
-
-    return render_template("market-blog.html", pitches = pitches)
-
-@main.route('/pitches/business-blog')
-def business_pitches():
-
-    pitches = Pitch.get_pitches('business')
-
-    return render_template("business-blog.html", pitches = pitches)
-
-@main.route('/pitches/sales-blog')
-def sales_pitches():
-
-    pitches = Pitch.get_pitches('sales')
-
-    return render_template("sales-blog.html", pitches = pitches)
-
-@main.route('/pitch/<int:id>', methods = ['GET','POST'])
-def pitch(id):
-    pitch = Pitch.get_pitch(id)
-    posted_date = pitch.posted.strftime('%b %d, %Y')
-
-    if request.args.get("like"):
-        pitch.likes = pitch.likes + 1
-
-        db.session.add(pitch)
-        db.session.commit()
-
-        return redirect("/pitch/{pitch_id}".format(pitch_id=pitch.id))
-
-    elif request.args.get("dislike"):
-        pitch.dislikes = pitch.dislikes + 1
-
-        db.session.add(pitch)
-        db.session.commit()
-
-        return redirect("/pitch/{pitch_id}".format(pitch_id=pitch.id))
-
-    comment_form = CommentForm()
-    if comment_form.validate_on_submit():
-        comment = comment_form.text.data
-
-        new_comment = Comment(comment = comment,user = current_user,pitch_id = pitch)
-
+    if form.validate_on_submit():
+        comment = form.comment.data
+        new_comment = Comments(comment=comment,user_id=current_user.id, blogs_id=blogs_id)
         new_comment.save_comment()
 
+        return redirect(url_for('main.category'))
+    title='New Blog'
+    return render_template('new_comment.html',title=title,comment_form = form,blogs_id=blogs_id)
 
-    comments = Comment.get_comments(pitch)
 
-    return render_template("pitch.html", pitch = pitch, comment_form = comment_form, comments = comments, date = posted_date)
+@main.route('/delete/<int:id>', methods=['GET', 'POST'])
+@login_required
+def deleteComment(id):
+    comment =Comments.query.get_or_404(id)
+    db.session.delete(comment)
+    db.session.commit()
+    return redirect (url_for('main.index'))
 
-@main.route('/user/<uname>/pitches')
-def user_pitches(uname):
-    user = User.query.filter_by(username=uname).first()
-    pitches = Pitch.query.filter_by(user_id = user.id).all()
-    pitches_count = Pitch.count_pitches(uname)
-    user_joined = user.date_joined.strftime('%b %d, %Y')
 
-    return render_template("profile/pitches.html", user=user,pitches=pitches,pitches_count=pitches_count,date = user_joined)
+@main.route('/deleteblog/<int:id>', methods=['GET', 'POST'])
+@login_required
+def deleteBlog(id):
+    blog = Blogs.query.get_or_404(id)
+    db.session.delete(blog)
+    db.session.commit()
+    return redirect(url_for('main.index'))
+
+@main.route('/Subscribe',methods=['GET','POST'])
+def subBlog():
+    
+    form = SubscriberForm()
+    if form.validate_on_submit():
+        subs = Subscriber(email = form.email.data, username = form.username.data)    
+        db.session.add(subs)
+        db.session.commit()
+
+
+        mail_message("You have successfully subscribed to Awesome Blog website,Thank for joining us", "email/welcome_subs", subs.email,subs=subs)
+    
+    return render_template('subscribe.html',subscribe_form=form)

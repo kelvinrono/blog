@@ -1,43 +1,81 @@
 from . import db
+from datetime import datetime
+from . import login_manager
 from werkzeug.security import generate_password_hash,check_password_hash
 from flask_login import UserMixin
-from . import login_manager
-from datetime import datetime
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
+
+class Blogs(db.Model):
+
+    __tablename__ = 'blogs'
+
+    id = db.Column(db.Integer,primary_key=True)
+    title = db.Column(db.String(255))
+    category = db.Column(db.String(255))
+    blog = db.Column(db.String(255))
+    date = db.Column(db.DateTime(250), default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id",ondelete='CASCADE'), nullable=False)
+    comments = db.relationship('Comments', backref='title', lazy='dynamic')
+
+    def save_blog(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def deleteblog(self):
+        db.session.delete(self)
+        db.session.commit() 
+
+    @classmethod
+    def get_blogs(cls):
+        blog = Blogs.query.all()
+        return blog
+
+
+    def __repr__(self):
+        return f"Blogs {self.blog}','{self.date}')"     
+
+
 class User(UserMixin,db.Model):
     __tablename__ = 'users'
 
-    id = db.Column(db.Integer,primary_key = True)
-    username = db.Column(db.String(255),index =True)
-    firstname = db.Column(db.String(255))
-    lastname = db.Column(db.String(255))
-    email = db.Column(db.String(255),unique = True,index = True)
+    id = db.Column(db.Integer,primary_key=True)
+    author = db.Column(db.String(255),index=True)
+    email = db.Column(db.String(255),unique=True,index = True)
     role_id = db.Column(db.Integer,db.ForeignKey('roles.id'))
-    bio = db.Column(db.String(5000))
-    profile_pic_path = db.Column(db.String)
+    bio = db.Column(db.String(255))
+    profile_pic_path = db.Column(db.String())
+    blog = db.relationship('Blogs', backref='author',passive_deletes=True, lazy='dynamic')
     pass_secure = db.Column(db.String(255))
-    date_joined = db.Column(db.DateTime,default=datetime.utcnow)
-
-    pitches = db.relationship('Pitch',backref = 'user',lazy = "dynamic")
-    comments = db.relationship('Comment',backref = 'user',lazy = "dynamic")
+    comment = db.relationship('Comments',backref = 'author',passive_deletes=True,lazy='dynamic')
 
     @property
     def password(self):
         raise AttributeError('You cannot read the password attribute')
 
     @password.setter
-    def password(self,password):
+    def password(self, password):
         self.pass_secure = generate_password_hash(password)
+    
 
     def verify_password(self,password):
         return check_password_hash(self.pass_secure,password)
+    
 
     def __repr__(self):
-        return f'User {self.username}'
+        return f'User {self.author}'
+
+
+class Quote:
+    def __init__(self,id,author,quote):
+        self.id =id
+        self.author = author
+        self.quote = quote
+
 
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -49,58 +87,37 @@ class Role(db.Model):
     def __repr__(self):
         return f'User {self.name}'
 
-class Pitch(db.Model):
-    __tablename__ = 'pitches'
-
-    id = db.Column(db.Integer,primary_key = True)
-    pitch_title = db.Column(db.String)
-    pitch_content = db.Column(db.String(1000))
-    category = db.Column(db.String)
-    posted = db.Column(db.DateTime,default=datetime.utcnow)
-    user_id = db.Column(db.Integer,db.ForeignKey("users.id"))
-    likes = db.Column(db.Integer)
-    dislikes = db.Column(db.Integer)
-    comments = db.relationship('Comment',backref =  'pitch_id',lazy = "dynamic")
-
-    def save_pitch(self):
-        db.session.add(self)
-        db.session.commit()
-
-    @classmethod
-    def get_pitches(cls,category):
-        pitches = Pitch.query.filter_by(category=category).all()
-        return pitches
-
-    @classmethod
-    def get_pitch(cls,id):
-        pitch = Pitch.query.filter_by(id=id).first()
-
-        return pitch
-
-    @classmethod
-    def count_pitches(cls,uname):
-        user = User.query.filter_by(username=uname).first()
-        pitches = Pitch.query.filter_by(user_id=user.id).all()
-
-        pitches_count = 0
-        for pitch in pitches:
-            pitches_count += 1
-
-        return pitches_count
-
-class Comment(db.Model):
+class Comments(db.Model):
     __tablename__ = 'comments'
+    id = db.Column(db.Integer, primary_key=True)
+    comment = db.Column(db.String(255))
+    date_posted = db.Column(db.DateTime(250), default=datetime.utcnow)
+    blogs_id = db.Column(db.Integer, db.ForeignKey("blogs.id"))
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
-    id = db.Column(db.Integer,primary_key = True)
-    comment = db.Column(db.String(1000))
-    user_id = db.Column(db.Integer,db.ForeignKey("users.id"))
-    pitch = db.Column(db.Integer,db.ForeignKey("pitches.id"))
 
     def save_comment(self):
         db.session.add(self)
         db.session.commit()
 
     @classmethod
-    def get_comments(cls,pitch):
-        comments = Comment.query.filter_by(pitch_id=pitch).all()
+    def get_comment(cls,id):
+        comments = Comments.query.filter_by(blogs_id=id).all()
         return comments
+
+    def deleteComment(self):
+        db.session.delete(self)
+        db.session.commit()
+
+    def __repr__(self):
+        return f"Comments('{self.comment}', '{self.date_posted}')"
+
+class Subscriber(db.Model):
+    __tablename__ = 'subscriber'
+
+    id = db.Column(db.Integer,primary_key = True)
+    username = db.Column(db.String(255))
+    email = db.Column(db.String(255),unique = True,index = True)
+
+    def __repr__(self):
+        return f'Subscriber {self.username}'
